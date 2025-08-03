@@ -199,7 +199,14 @@ pub fn innerParseValueRequest(
                     var result: T = undefined;
 
                     const slice = if (std.mem.startsWith(u8, str, "0x")) str[2..] else str[0..];
-                    if (std.fmt.hexToBytes(&result, slice)) |_| {
+                    var padded_slice_arr: []const u8 = slice;
+                    var padded_buffer_arr: [1024]u8 = undefined;
+                    if (slice.len & 1 != 0) {
+                        padded_buffer_arr[0] = '0';
+                        std.mem.copyForwards(u8, padded_buffer_arr[1..], slice);
+                        padded_slice_arr = padded_buffer_arr[0..slice.len + 1];
+                    }
+                    if (std.fmt.hexToBytes(&result, padded_slice_arr)) |_| {
                         if (arr_info.len != slice.len / 2)
                             return error.LengthMismatch;
 
@@ -239,13 +246,25 @@ pub fn innerParseValueRequest(
                             if (ptr_info.is_const)
                                 return str;
 
-                            if (str.len & 1 != 0)
-                                return error.InvalidCharacter;
-
                             const slice = if (std.mem.startsWith(u8, str, "0x")) str[2..] else str[0..];
-                            const result = try allocator.alloc(u8, @divExact(slice.len, 2));
+                    var padded_slice_arr: []const u8 = slice;
+                    var padded_buffer_arr: [1024]u8 = undefined;
+                    if (slice.len & 1 != 0) {
+                        padded_buffer_arr[0] = '0';
+                        std.mem.copyForwards(u8, padded_buffer_arr[1..], slice);
+                        padded_slice_arr = padded_buffer_arr[0..slice.len + 1];
+                    }
+                            var padded_slice: []const u8 = slice;
+                            var padded_buffer: [1024]u8 = undefined;
+                            if (slice.len & 1 != 0) {
+                                padded_buffer[0] = '0';
+                                std.mem.copyForwards(u8, padded_buffer[1..], slice);
+                                padded_slice = padded_buffer[0..slice.len + 1];
+                            }
 
-                            _ = std.fmt.hexToBytes(result, slice) catch return error.UnexpectedToken;
+                            const result = try allocator.alloc(u8, @divExact(padded_slice.len, 2));
+
+                            _ = std.fmt.hexToBytes(result, padded_slice_arr) catch return error.UnexpectedToken;
 
                             return result;
                         },

@@ -31,6 +31,60 @@ const Value = std.json.Value;
 pub const Hex = []u8;
 /// Ethereum gwei type in zabi.
 pub const Gwei = u64;
+
+/// Custom JSON parsing for Gwei type
+pub const GweiJsonParser = struct {
+    pub fn jsonParse(
+        allocator: std.mem.Allocator,
+        source: anytype,
+        options: std.json.ParseOptions,
+    ) std.json.ParseError(@TypeOf(source.*))!Gwei {
+        _ = allocator;
+        _ = options;
+        const value = try source.next();
+        switch (value) {
+            .string => |str| {
+                if (str.len >= 2 and str[0] == '0' and str[1] == 'x') {
+                    return std.fmt.parseInt(Gwei, str[2..], 16) catch return error.InvalidNumber;
+                } else {
+                    return std.fmt.parseInt(Gwei, str, 10) catch return error.InvalidNumber;
+                }
+            },
+            .number_string => |str| {
+                return std.fmt.parseInt(Gwei, str, 10) catch return error.InvalidNumber;
+            },
+            .integer => |int| {
+                return @intCast(int);
+            },
+            else => return error.UnexpectedToken,
+        }
+    }
+
+    pub fn jsonParseFromValue(
+        allocator: std.mem.Allocator,
+        source: std.json.Value,
+        options: std.json.ParseFromValueError,
+    ) std.json.ParseFromValueError!Gwei {
+        _ = allocator;
+        _ = options;
+        switch (source) {
+            .string => |str| {
+                if (str.len >= 2 and str[0] == '0' and str[1] == 'x') {
+                    return std.fmt.parseInt(Gwei, str[2..], 16) catch return error.InvalidNumber;
+                } else {
+                    return std.fmt.parseInt(Gwei, str, 10) catch return error.InvalidNumber;
+                }
+            },
+            .number_string => |str| {
+                return std.fmt.parseInt(Gwei, str, 10) catch return error.InvalidNumber;
+            },
+            .integer => |int| {
+                return @intCast(int);
+            },
+            else => return error.UnexpectedToken,
+        }
+    }
+};
 /// Ethereum wei value in zabi.
 pub const Wei = u256;
 /// Ethereum hash type in zabi.
