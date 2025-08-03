@@ -350,6 +350,66 @@ pub const BlobBlock = struct {
     ) @TypeOf(writer_stream.*).Error!void {
         return meta.json.jsonStringify(@This(), self, writer_stream);
     }
+/// Avalanche C-Chain specific block type that includes custom fields
+/// and uses ignore_unknown_fields for better compatibility
+pub const AvalancheBlock = struct {
+    baseFeePerGas: ?Gwei = null,
+    difficulty: u256,
+    extraData: Hex,
+    gasLimit: Gwei,
+    gasUsed: Gwei,
+    hash: ?Hash,
+    logsBloom: ?Hex,
+    miner: Address,
+    mixHash: ?Hash = null,
+    nonce: ?u64,
+    number: ?u64,
+    parentHash: Hash,
+    receiptsRoot: Hash,
+    sealFields: ?[]const Hex = null,
+    sha3Uncles: Hash,
+    size: u64,
+    stateRoot: Hash,
+    timestamp: u64,
+    totalDifficulty: ?u256 = null,
+    transactions: ?BlockTransactions = null,
+    transactionsRoot: Hash,
+    uncles: ?[]const Hash = null,
+    // Avalanche specific fields (will be ignored if not present)
+    blockExtraData: ?Hex = null,
+    blockGasCost: ?u64 = null,
+    extDataGasUsed: ?Hex = null,
+    extDataHash: ?Hash = null,
+
+    pub fn jsonParse(
+        allocator: Allocator,
+        source: anytype,
+        options: ParseOptions,
+    ) ParseError(@TypeOf(source.*))!@This() {
+        // Force ignore_unknown_fields to true for Avalanche compatibility
+        var avalanche_options = options;
+        avalanche_options.ignore_unknown_fields = true;
+        return meta.json.jsonParse(@This(), allocator, source, avalanche_options);
+    }
+
+    pub fn jsonParseFromValue(
+        allocator: Allocator,
+        source: Value,
+        options: ParseOptions,
+    ) ParseFromValueError!@This() {
+        // Force ignore_unknown_fields to true for Avalanche compatibility
+        var avalanche_options = options;
+        avalanche_options.ignore_unknown_fields = true;
+        return meta.json.jsonParseFromValue(@This(), allocator, source, avalanche_options);
+    }
+
+    pub fn jsonStringify(
+        self: @This(),
+        writer_stream: anytype,
+    ) @TypeOf(writer_stream.*).Error!void {
+        return meta.json.jsonStringify(@This(), self, writer_stream);
+    }
+};
 };
 /// Union type of the possible blocks found on the network.
 pub const Block = union(enum) {
@@ -357,6 +417,7 @@ pub const Block = union(enum) {
     legacy: LegacyBlock,
     cancun: BlobBlock,
     arbitrum: ArbitrumBlock,
+    avalanche: AvalancheBlock,
 
     pub fn jsonParse(
         allocator: Allocator,
@@ -380,6 +441,9 @@ pub const Block = union(enum) {
 
         if (source.object.get("withdrawals") != null)
             return @unionInit(@This(), "beacon", try std.json.parseFromValueLeaky(BeaconBlock, allocator, source, options));
+
+        if (source.object.get("blockExtraData") != null or source.object.get("extDataHash") != null)
+            return @unionInit(@This(), "avalanche", try std.json.parseFromValueLeaky(AvalancheBlock, allocator, source, options));
 
         if (source.object.get("l1BlockNumber") != null)
             return @unionInit(@This(), "arbitrum", try std.json.parseFromValueLeaky(ArbitrumBlock, allocator, source, options));
